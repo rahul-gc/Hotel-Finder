@@ -9,9 +9,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MOCK_HOTELS } from "@/lib/mock-data";
+import { apiService, ApiError } from "@/lib/api";
 import { haversineDistance, formatDistance, formatPrice, getUserLocation, rankHotels } from "@/lib/geo";
-import { AMENITIES, CITIES, type SearchFilters } from "@/lib/types";
+import { AMENITIES, CITIES, type SearchFilters, type Hotel } from "@/lib/types";
 import SearchMap from "@/components/search/SearchMap";
 import NearestHotels from "@/components/search/NearestHotels";
 
@@ -36,6 +36,9 @@ const SearchPage = () => {
   });
   const [searchQuery, setSearchQuery] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [hotels, setHotels] = useState<Hotel[]>([]);
+  const [hotelsLoading, setHotelsLoading] = useState(true);
+  const [hotelsError, setHotelsError] = useState<string | null>(null);
 
   const requestLocation = () => {
     setLocationLoading(true);
@@ -63,14 +66,46 @@ const SearchPage = () => {
     requestLocation();
   }, []);
 
+  // Fetch hotels from API
+  useEffect(() => {
+    const fetchHotels = async () => {
+      try {
+        setHotelsLoading(true);
+        setHotelsError(null);
+        
+        const params: any = {
+          city: filters.city || undefined,
+          minPrice: filters.priceRange[0],
+          maxPrice: filters.priceRange[1],
+          search: searchQuery || undefined,
+          limit: 100, // Get more results for client-side filtering
+        };
+
+        const response = await apiService.getHotels(params);
+        setHotels(response.hotels);
+      } catch (error) {
+        console.error('Failed to fetch hotels:', error);
+        if (error instanceof ApiError) {
+          setHotelsError(error.message);
+        } else {
+          setHotelsError('Failed to load hotels');
+        }
+      } finally {
+        setHotelsLoading(false);
+      }
+    };
+
+    fetchHotels();
+  }, [filters.city, filters.priceRange, searchQuery]);
+
   const hotelsWithDistance = useMemo(() => {
-    return MOCK_HOTELS.filter((h) => h.status === "verified").map((hotel) => ({
+    return hotels.map((hotel) => ({
       ...hotel,
       distance: userLocation
         ? haversineDistance(userLocation.lat, userLocation.lng, hotel.latitude, hotel.longitude)
         : undefined,
     }));
-  }, [userLocation]);
+  }, [hotels, userLocation]);
 
   const filteredHotels = useMemo(() => {
     let result = hotelsWithDistance.filter((hotel) => {
@@ -258,8 +293,13 @@ const SearchPage = () => {
           <div className="flex-1 space-y-4">
             {/* Map */}
             <div className="h-64 md:h-80 rounded-lg overflow-hidden border">
-              {!locationLoading && (
+              {!locationLoading && !hotelsLoading && (
                 <SearchMap hotels={filteredHotels} userLocation={userLocation} />
+              )}
+              {hotelsLoading && (
+                <div className="h-full flex items-center justify-center">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
               )}
             </div>
 
@@ -277,50 +317,63 @@ const SearchPage = () => {
             </div>
 
             {/* Hotel cards */}
-            <div className="grid gap-4 md:grid-cols-2">
-              {filteredHotels.map((hotel) => (
-                <Link key={hotel.id} to={`/hotel/${hotel.id}`}>
-                  <Card className="overflow-hidden transition-all hover:shadow-md hover:-translate-y-0.5 h-full">
-                    <div className="relative h-44 overflow-hidden">
-                      <img
-                        src={hotel.images[0]?.image_url}
-                        alt={hotel.name}
-                        className="h-full w-full object-cover"
-                        loading="lazy"
-                      />
-                      {hotel.status === "verified" && (
-                        <Badge className="absolute top-2 right-2 bg-success text-success-foreground gap-1">
-                          <Shield className="h-3 w-3" /> Verified
-                        </Badge>
-                      )}
-                    </div>
-                    <CardContent className="p-4 space-y-2">
-                      <div className="flex items-start justify-between gap-2">
-                        <h3 className="font-semibold text-foreground line-clamp-1">{hotel.name}</h3>
-                        <div className="flex items-center gap-1 shrink-0">
-                          <Star className="h-4 w-4 fill-primary text-primary" />
-                          <span className="text-sm font-medium">{hotel.average_rating?.toFixed(1)}</span>
-                          <span className="text-xs text-muted-foreground">({hotel.review_count})</span>
+            {hotelsLoading ? (
+              <div className="flex justify-center py-16">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : hotelsError ? (
+              <div className="text-center py-16 space-y-3">
+                <Hotel className="h-12 w-12 mx-auto text-destructive/50" />
+                <h3 className="font-semibold text-foreground">Error loading hotels</h3>
+                <p className="text-sm text-muted-foreground">{hotelsError}</p>
+                <Button size="sm" onClick={() => window.location.reload()}>Try Again</Button>
+              </div>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2">
+                {filteredHotels.map((hotel) => (
+                  <Link key={hotel.id} to={`/hotel/${hotel.id}`}>
+                    <Card className="overflow-hidden transition-all hover:shadow-md hover:-translate-y-0.5 h-full">
+                      <div className="relative h-44 overflow-hidden">
+                        <img
+                          src={hotel.images[0]?.image_url}
+                          alt={hotel.name}
+                          className="h-full w-full object-cover"
+                          loading="lazy"
+                        />
+                        {hotel.status === "verified" && (
+                          <Badge className="absolute top-2 right-2 bg-success text-success-foreground gap-1">
+                            <Shield className="h-3 w-3" /> Verified
+                          </Badge>
+                        )}
+                      </div>
+                      <CardContent className="p-4 space-y-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <h3 className="font-semibold text-foreground line-clamp-1">{hotel.name}</h3>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <Star className="h-4 w-4 fill-primary text-primary" />
+                            <span className="text-sm font-medium">{hotel.average_rating?.toFixed(1)}</span>
+                            <span className="text-xs text-muted-foreground">({hotel.review_count})</span>
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                        <MapPin className="h-3.5 w-3.5" />
-                        {hotel.city}
-                        {hotel.distance != null && ` · ${formatDistance(hotel.distance)}`}
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <p className="font-semibold text-foreground">{formatPrice(hotel.price_per_night)}<span className="text-sm font-normal text-muted-foreground"> /night</span></p>
-                        <div className="flex gap-1">
-                          {hotel.amenities.slice(0, 3).map((a) => (
-                            <Badge key={a} variant="secondary" className="text-xs">{a}</Badge>
-                          ))}
+                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                          <MapPin className="h-3.5 w-3.5" />
+                          {hotel.city}
+                          {hotel.distance != null && ` · ${formatDistance(hotel.distance)}`}
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              ))}
-            </div>
+                        <div className="flex items-center justify-between">
+                          <p className="font-semibold text-foreground">{formatPrice(hotel.price_per_night)}<span className="text-sm font-normal text-muted-foreground"> /night</span></p>
+                          <div className="flex gap-1">
+                            {hotel.amenities.slice(0, 3).map((a) => (
+                              <Badge key={a} variant="secondary" className="text-xs">{a}</Badge>
+                            ))}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                ))}
+              </div>
+            )}
 
             {filteredHotels.length === 0 && (
               <div className="text-center py-16 space-y-3">

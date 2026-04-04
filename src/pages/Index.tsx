@@ -2,6 +2,8 @@ import { Link } from "react-router-dom";
 import { Search, Hotel, MapPin, Star, Shield, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
 import logoImg from "/logo.png";
 
 const FEATURED_CITIES = [
@@ -26,6 +28,34 @@ const FEATURED_CITIES = [
 ];
 
 const Index = () => {
+  const [connectionStatus, setConnectionStatus] = useState<string>("Checking Supabase...");
+  const [hotelCount, setHotelCount] = useState<number>(0);
+
+  useEffect(() => {
+    const testConnection = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('hotels')
+          .select('*')
+          .limit(10);
+        
+        if (error) {
+          console.error('Supabase error:', error);
+          setConnectionStatus(`❌ Supabase Error: ${error.message}`);
+        } else {
+          console.log('✅ Supabase connected! Found', data?.length || 0, 'hotels');
+          setConnectionStatus(`✅ Connected! Found ${data?.length || 0} hotels`);
+          setHotelCount(data?.length || 0);
+        }
+      } catch (err) {
+        console.error('Connection failed:', err);
+        setConnectionStatus(`❌ Connection Failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      }
+    };
+
+    testConnection();
+  }, []);
+
   return (
     <div className="min-h-screen bg-background">
       {/* Navbar */}
@@ -47,21 +77,27 @@ const Index = () => {
       </nav>
 
       {/* Hero */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-primary/5 via-background to-primary/10 py-20 md:py-32">
-        <div className="container text-center">
-          <div className="mx-auto max-w-3xl space-y-6">
-            <div className="inline-flex items-center gap-2 rounded-full border bg-background px-4 py-1.5 text-sm text-muted-foreground">
-              <Shield className="h-4 w-4 text-success" />
-              Trusted & Verified Hotels in Nepal
-            </div>
-            <h1 className="text-4xl font-bold tracking-tight text-foreground md:text-6xl">
-              Find Your Perfect Stay in{" "}
-              <span className="text-primary">Nepal</span>
+      <section className="relative bg-gradient-to-b from-primary/10 to-background py-20">
+        <div className="container mx-auto px-4">
+          <div className="mx-auto max-w-3xl text-center">
+            <h1 className="mb-4 text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
+              Find Your Perfect Stay in Nepal
             </h1>
-            <p className="text-lg text-muted-foreground md:text-xl">
-              Discover verified hotels across Kathmandu, Pokhara, and beyond. 
-              No more confusion — only trusted, authentic listings.
+            <p className="mb-4 text-lg text-muted-foreground">
+              Discover verified hotels across Kathmandu, Pokhara, Chitwan, and Lumbini
             </p>
+            
+            {/* Connection Status Indicator */}
+            <div className={`mb-6 inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium ${
+              connectionStatus.includes('✅') ? 'bg-green-100 text-green-800 border border-green-200' : 
+              connectionStatus.includes('❌') ? 'bg-red-100 text-red-800 border border-red-200' : 
+              'bg-yellow-100 text-yellow-800 border border-yellow-200'
+            }`}>
+              <span className="text-lg">
+                {connectionStatus.includes('✅') ? '🟢' : connectionStatus.includes('❌') ? '🔴' : '🟡'}
+              </span>
+              <span>{connectionStatus}</span>
+            </div>
           </div>
         </div>
       </section>
