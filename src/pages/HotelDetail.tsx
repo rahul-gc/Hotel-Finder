@@ -21,12 +21,17 @@ const HotelDetail = () => {
 
   useEffect(() => {
     if (!mapRef.current || !hotel) return;
-    const map = L.map(mapRef.current).setView([hotel.latitude, hotel.longitude], 15);
+    const container = mapRef.current;
+    if ((container as any)._leaflet_id) {
+      delete (container as any)._leaflet_id;
+    }
+    const map = L.map(container).setView([hotel.latitude, hotel.longitude], 15);
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: '&copy; OpenStreetMap',
     }).addTo(map);
     L.marker([hotel.latitude, hotel.longitude]).addTo(map).bindPopup(hotel.name).openPopup();
-    return () => { map.remove(); };
+    setTimeout(() => map.invalidateSize(), 100);
+    return () => { map.off(); map.remove(); };
   }, [hotel]);
 
   if (!hotel) {
