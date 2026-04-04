@@ -192,7 +192,7 @@ const Index = () => {
                 © 2026 VerifiedStay Nepal. All rights reserved.
               </p>
               <p className="text-xs text-muted-foreground mt-1">
-                Built with ❤️ by <span className="font-semibold text-foreground">VerifiedStay Nepal</span>
+                Built with ❤️ by <span className="font-semibold text-foreground">Rahul GC</span>
               </p>
             </div>
           </div>

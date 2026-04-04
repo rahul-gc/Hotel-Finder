@@ -337,7 +337,7 @@ const SearchPage = () => {
       <footer className="border-t py-4 mt-8">
         <div className="container text-center">
           <p className="text-xs text-muted-foreground">
-            Built with ❤️ by <span className="font-semibold text-foreground">VerifiedStay Nepal</span> · © 2026
+            Built with ❤️ by <span className="font-semibold text-foreground">Rahul GC</span> · © 2026
           </p>
         </div>
       </footer>
