@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { MapPin, Star, Shield, SlidersHorizontal, Hotel, ArrowLeft, Search as SearchIcon, X } from "lucide-react";
+import { MapPin, Star, Shield, SlidersHorizontal, Hotel, ArrowLeft, Search as SearchIcon, X, Navigation, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,7 @@ import { MOCK_HOTELS } from "@/lib/mock-data";
 import { haversineDistance, formatDistance, formatPrice, getUserLocation, rankHotels } from "@/lib/geo";
 import { AMENITIES, CITIES, type SearchFilters } from "@/lib/types";
 import SearchMap from "@/components/search/SearchMap";
+import NearestHotels from "@/components/search/NearestHotels";
 
 const DEFAULT_FILTERS: SearchFilters = {
   priceRange: [0, 15000],
@@ -24,9 +25,11 @@ const DEFAULT_FILTERS: SearchFilters = {
 const SearchPage = () => {
   const [searchParams] = useSearchParams();
   const cityParam = searchParams.get("city") || "";
-  
+
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [locationLoading, setLocationLoading] = useState(true);
   const [locationError, setLocationError] = useState(false);
+  const [askingLocation, setAskingLocation] = useState(true);
   const [filters, setFilters] = useState<SearchFilters>({
     ...DEFAULT_FILTERS,
     city: cityParam || undefined,
@@ -34,16 +37,30 @@ const SearchPage = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
 
-  useEffect(() => {
+  const requestLocation = () => {
+    setLocationLoading(true);
+    setAskingLocation(false);
     getUserLocation()
       .then((pos) => {
         setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setLocationError(false);
       })
       .catch(() => {
         setLocationError(true);
-        // Default to Kathmandu
         setUserLocation({ lat: 27.7172, lng: 85.3240 });
-      });
+      })
+      .finally(() => setLocationLoading(false));
+  };
+
+  const skipLocation = () => {
+    setAskingLocation(false);
+    setLocationLoading(false);
+    setUserLocation({ lat: 27.7172, lng: 85.3240 });
+  };
+
+  // Auto-request on mount
+  useEffect(() => {
+    requestLocation();
   }, []);
 
   const hotelsWithDistance = useMemo(() => {
@@ -62,11 +79,20 @@ const SearchPage = () => {
       if (hotel.distance != null && hotel.distance > filters.distanceRadius) return false;
       if (filters.city && hotel.city !== filters.city) return false;
       if (filters.amenities.length > 0 && !filters.amenities.every((a) => hotel.amenities.includes(a))) return false;
-      if (searchQuery && !hotel.name.toLowerCase().includes(searchQuery.toLowerCase()) && !hotel.address.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+      if (searchQuery && !hotel.name.toLowerCase().includes(searchQuery.toLowerCase()) && !hotel.address.toLowerCase().includes(searchQuery.toLowerCase()) && !hotel.city.toLowerCase().includes(searchQuery.toLowerCase())) return false;
       return true;
     });
     return rankHotels(result) as typeof result;
   }, [hotelsWithDistance, filters, searchQuery]);
+
+  // Nearest 3 hotels for suggestion strip
+  const nearestHotels = useMemo(() => {
+    if (!userLocation) return [];
+    return [...hotelsWithDistance]
+      .filter((h) => h.distance != null)
+      .sort((a, b) => (a.distance ?? 999) - (b.distance ?? 999))
+      .slice(0, 3);
+  }, [hotelsWithDistance, userLocation]);
 
   const FilterContent = () => (
     <div className="space-y-6">
@@ -161,7 +187,7 @@ const SearchPage = () => {
           <div className="relative flex-1 max-w-md">
             <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search hotels or areas..."
+              placeholder="Search hotels, cities, or areas..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9"
@@ -172,7 +198,6 @@ const SearchPage = () => {
               </button>
             )}
           </div>
-          {/* Mobile filter button */}
           <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
             <SheetTrigger asChild>
               <Button variant="outline" size="icon" className="lg:hidden">
@@ -188,11 +213,34 @@ const SearchPage = () => {
       </div>
 
       <div className="container py-4">
-        {locationError && (
-          <div className="mb-4 rounded-lg border bg-muted/50 p-3 text-sm text-muted-foreground flex items-center gap-2">
-            <MapPin className="h-4 w-4" />
-            Location access denied. Showing results centered on Kathmandu. You can filter by city.
+        {/* Location status */}
+        {locationLoading && (
+          <div className="mb-4 rounded-lg border bg-primary/5 p-3 text-sm text-foreground flex items-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin text-primary" />
+            Detecting your location...
           </div>
+        )}
+        {locationError && !locationLoading && (
+          <div className="mb-4 rounded-lg border bg-muted/50 p-3 text-sm text-muted-foreground flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <MapPin className="h-4 w-4" />
+              Location access denied. Showing Kathmandu area.
+            </div>
+            <Button size="sm" variant="outline" onClick={requestLocation} className="gap-1">
+              <Navigation className="h-3 w-3" /> Retry
+            </Button>
+          </div>
+        )}
+        {userLocation && !locationError && !locationLoading && (
+          <div className="mb-4 rounded-lg border bg-success/5 p-3 text-sm text-foreground flex items-center gap-2">
+            <Navigation className="h-4 w-4 text-success" />
+            Location tracked — showing hotels near you
+          </div>
+        )}
+
+        {/* Nearest hotel suggestions */}
+        {nearestHotels.length > 0 && !locationLoading && (
+          <NearestHotels hotels={nearestHotels} />
         )}
 
         <div className="flex gap-6">
@@ -210,10 +258,9 @@ const SearchPage = () => {
           <div className="flex-1 space-y-4">
             {/* Map */}
             <div className="h-64 md:h-80 rounded-lg overflow-hidden border">
-              <SearchMap
-                hotels={filteredHotels}
-                userLocation={userLocation}
-              />
+              {!locationLoading && (
+                <SearchMap hotels={filteredHotels} userLocation={userLocation} />
+              )}
             </div>
 
             <div className="flex items-center justify-between">
@@ -285,6 +332,15 @@ const SearchPage = () => {
           </div>
         </div>
       </div>
+
+      {/* Footer watermark */}
+      <footer className="border-t py-4 mt-8">
+        <div className="container text-center">
+          <p className="text-xs text-muted-foreground">
+            Built with ❤️ by <span className="font-semibold text-foreground">VerifiedStay Nepal</span> · © 2026
+          </p>
+        </div>
+      </footer>
     </div>
   );
 };

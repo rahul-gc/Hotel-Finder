@@ -179,7 +179,7 @@ const Index = () => {
         </div>
       </section>
 
-      {/* Footer */}
+      {/* Footer with watermark */}
       <footer className="border-t py-12 bg-background">
         <div className="container">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
@@ -187,9 +187,14 @@ const Index = () => {
               <Hotel className="h-5 w-5 text-primary" />
               <span className="font-semibold text-foreground">Nepal Verified Stay Finder</span>
             </div>
-            <p className="text-sm text-muted-foreground">
-              © 2026 VerifiedStay Nepal. All rights reserved.
-            </p>
+            <div className="text-center md:text-right">
+              <p className="text-sm text-muted-foreground">
+                © 2026 VerifiedStay Nepal. All rights reserved.
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Built with ❤️ by <span className="font-semibold text-foreground">VerifiedStay Nepal</span>
+              </p>
+            </div>
           </div>
         </div>
       </footer>
