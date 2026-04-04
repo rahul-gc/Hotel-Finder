@@ -9,6 +9,7 @@ import HotelDetail from "./pages/HotelDetail.tsx";
 import RegisterHotel from "./pages/RegisterHotel.tsx";
 import Login from "./pages/Login.tsx";
 import Signup from "./pages/Signup.tsx";
+import About from "./pages/About.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -26,6 +27,7 @@ const App = () => (
           <Route path="/register-hotel" element={<RegisterHotel />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
+          <Route path="/about" element={<About />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
