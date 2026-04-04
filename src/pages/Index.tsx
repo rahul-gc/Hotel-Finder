@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { Search, Hotel, MapPin, Star, Shield, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import logoImg from "/logo.png";
 
 const FEATURED_CITIES = [
   {
@@ -31,8 +32,8 @@ const Index = () => {
       <nav className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur">
         <div className="container flex h-16 items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
-            <Hotel className="h-6 w-6 text-primary" />
-            <span className="text-lg font-bold text-foreground">VerifiedStay</span>
+            <img src={logoImg} alt="Nepal Hotels Finder" className="h-8 w-8" />
+            <span className="text-lg font-bold text-foreground">Nepal Hotels Finder</span>
           </Link>
           <div className="flex items-center gap-3">
             <Link to="/login">
@@ -179,17 +180,17 @@ const Index = () => {
         </div>
       </section>
 
-      {/* Footer with watermark */}
+      {/* Footer */}
       <footer className="border-t py-12 bg-background">
         <div className="container">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2">
-              <Hotel className="h-5 w-5 text-primary" />
-              <span className="font-semibold text-foreground">Nepal Verified Stay Finder</span>
+              <img src={logoImg} alt="Nepal Hotels Finder" className="h-5 w-5" />
+              <span className="font-semibold text-foreground">Nepal Hotels Finder</span>
             </div>
             <div className="text-center md:text-right">
               <p className="text-sm text-muted-foreground">
-                © 2026 VerifiedStay Nepal. All rights reserved.
+                © 2026 Nepal Hotels Finder. All rights reserved.
               </p>
               <p className="text-xs text-muted-foreground mt-1">
                 Built with ❤️ by <span className="font-semibold text-foreground">Rahul GC</span>
