@@ -128,12 +128,9 @@ const About = () => {
           <CardContent className="p-0">
             <div className="bg-gradient-to-br from-primary/10 to-primary/5 p-8 md:p-12 text-center">
               <div className="relative inline-block">
-                <Avatar className="h-32 w-32 mx-auto ring-4 ring-background shadow-2xl">
-                  <AvatarImage src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400" alt="Rahul GC" />
-                  <AvatarFallback className="text-3xl bg-primary text-primary-foreground font-bold">
-                    RG
-                  </AvatarFallback>
-                </Avatar>
+                <div className="w-32 h-32 mx-auto rounded-full bg-primary flex items-center justify-center ring-4 ring-background shadow-2xl">
+                  <span className="text-5xl font-bold text-primary-foreground">R</span>
+                </div>
                 <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
                   <Sparkles className="h-4 w-4 text-white" />
                 </div>
