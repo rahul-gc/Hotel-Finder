@@ -3,10 +3,44 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://your-project.supabase.co';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'your-anon-key';
 
+// Custom storage that avoids lock contention
+const customStorage = {
+  getItem: (key: string) => {
+    try {
+      return Promise.resolve(localStorage.getItem(key));
+    } catch {
+      return Promise.resolve(null);
+    }
+  },
+  setItem: (key: string, value: string) => {
+    try {
+      localStorage.setItem(key, value);
+      return Promise.resolve();
+    } catch {
+      return Promise.resolve();
+    }
+  },
+  removeItem: (key: string) => {
+    try {
+      localStorage.removeItem(key);
+      return Promise.resolve();
+    } catch {
+      return Promise.resolve();
+    }
+  },
+};
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
+    detectSessionInUrl: false, // Prevents concurrent session checks
+    storage: customStorage,
+    storageKey: 'sb-auth-token',
+    debug: false,
+  },
+  realtime: {
+    timeout: 20000,
   },
 });
 
