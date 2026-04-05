@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, ArrowRight, MapPin, Upload, X, Check, Hotel, LogIn } from "lucide-react";
+import { ArrowLeft, ArrowRight, MapPin, Upload, X, Check, Hotel } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,7 +9,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AMENITIES, CITIES } from "@/lib/types";
-import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
 import L from "leaflet";
@@ -43,44 +42,16 @@ const initialForm: FormData = {
 };
 
 const RegisterHotel = () => {
-  const { isAuthenticated, profile, isLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   
   const [step, setStep] = useState(0);
-  const [form, setForm] = useState<FormData>({
-    ...initialForm,
-    ownerName: profile?.name || "",
-    email: profile?.email || "",
-  });
+  const [form, setForm] = useState<FormData>(initialForm);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const mapRef = useRef<HTMLDivElement>(null);
   const markerRef = useRef<L.Marker | null>(null);
-
-  // Redirect if not authenticated
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      toast({ 
-        title: "Login Required", 
-        description: "Please login to register your hotel.",
-        variant: "destructive" 
-      });
-      navigate("/login?redirect=/register-hotel");
-    }
-  }, [isAuthenticated, isLoading, navigate, toast]);
-
-  // Update form when profile loads
-  useEffect(() => {
-    if (profile) {
-      setForm(prev => ({
-        ...prev,
-        ownerName: profile.name || prev.ownerName,
-        email: profile.email || prev.email,
-      }));
-    }
-  }, [profile]);
 
   const updateField = <K extends keyof FormData>(key: K, value: FormData[K]) => {
     setForm((f) => ({ ...f, [key]: value }));
@@ -113,13 +84,12 @@ const RegisterHotel = () => {
   const prev = () => setStep((s) => Math.max(s - 1, 0));
   
   const handleSubmit = async () => {
-    if (!validateStep() || !profile) return;
+    if (!validateStep()) return;
     
     setSubmitting(true);
     try {
-      // Create hotel with logged-in user as owner
+      // Create hotel without owner_id (anonymous registration)
       const hotelData = {
-        owner_id: profile.id,
         name: form.hotelName,
         description: form.description,
         address: form.address,
