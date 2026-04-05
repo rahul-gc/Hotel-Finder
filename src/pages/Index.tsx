@@ -136,7 +136,16 @@ const Index = () => {
                     <Button variant="ghost" size="sm">Admin</Button>
                   </Link>
                 )}
-                <Button variant="ghost" size="sm" onClick={signOut}>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={(e) => {
+                    e.preventDefault();
+                    signOut().then(() => {
+                      toast({ title: "Logged out successfully" });
+                    });
+                  }}
+                >
                   <LogOut className="h-4 w-4 mr-1" /> Logout
                 </Button>
               </>
