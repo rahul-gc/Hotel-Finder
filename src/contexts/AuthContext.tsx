@@ -57,6 +57,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const checkSession = async () => {
       setIsLoading(true);
       try {
+        // Clear any stuck locks before getting session
+        try {
+          localStorage.removeItem('lock:sb-qkylzwrpttwlldmydleg-auth-token');
+          localStorage.removeItem('lock:sb-auth-token');
+        } catch {
+          // Ignore
+        }
+        
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
           setUser(session.user);
