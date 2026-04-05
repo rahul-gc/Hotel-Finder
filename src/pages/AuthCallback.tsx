@@ -13,14 +13,57 @@ const AuthCallback = () => {
   useEffect(() => {
     const handleAuthCallback = async () => {
       try {
-        // Get the session from the URL hash ( Supabase stores it there after OAuth )
+        // Check for OAuth hash token in URL (Google sends #access_token=...)
+        const hash = window.location.hash;
+        const query = window.location.search;
+        
+        console.log("Auth callback - hash:", hash ? "present" : "none");
+        console.log("Auth callback - query:", query);
+        
+        // If there's a hash with access_token, Supabase should have processed it
+        // Try to get session after a short delay to let Supabase process the token
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Get the session
         const { data: { session }, error } = await supabase.auth.getSession();
+        
+        console.log("Session found:", !!session);
+        console.log("Session error:", error);
         
         if (error) {
           throw error;
         }
 
+        // If no session but we have a code in URL, try to exchange it
+        if (!session) {
+          const params = new URLSearchParams(window.location.search);
+          const code = params.get('code');
+          
+          if (code) {
+            console.log("Found code in URL, exchanging for session...");
+            setMessage("Completing authentication...");
+            const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+            
+            if (exchangeError) {
+              console.error("Code exchange error:", exchangeError);
+              throw exchangeError;
+            }
+            
+            if (data.session) {
+              console.log("Session obtained from code exchange");
+              // Use the new session
+              const { data: { session: newSession } } = await supabase.auth.getSession();
+              if (newSession?.user) {
+                // Continue with user processing below
+                // We'll use newSession instead of session
+                Object.assign(session || {}, newSession);
+              }
+            }
+          }
+        }
+
         if (session?.user) {
+          console.log("User authenticated:", session.user.email);
           // Check if user profile exists, if not create it
           const { data: profile, error: profileError } = await supabase
             .from("users")
