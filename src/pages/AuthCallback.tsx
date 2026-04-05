@@ -19,7 +19,7 @@ const AuthCallback = () => {
         // Wait for Supabase to process the callback
         await new Promise(resolve => setTimeout(resolve, 2000));
         
-        // Just check if we have a session and redirect
+        // Check if we have a session and get user data
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
@@ -32,16 +32,11 @@ const AuthCallback = () => {
           throw new Error("Authentication failed");
         }
         
-        console.log("Authentication successful!");
+        console.log("Authentication successful for:", session.user.email);
         setMessage("Success! Redirecting...");
         
-        // Clear hash and redirect
-        window.location.hash = '';
-        toast({ title: "Login successful!" });
-        
-        setTimeout(() => {
-          navigate("/", { replace: true });
-        }, 1000);
+        // Force a page reload to ensure AuthContext picks up the new session
+        window.location.href = "/";
         
       } catch (error: any) {
         console.error("Auth callback error:", error);
