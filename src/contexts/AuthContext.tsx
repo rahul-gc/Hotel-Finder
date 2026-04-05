@@ -1,6 +1,7 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { supabase } from "@/lib/supabase";
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
+import { supabase, clearAuthStorage, STORAGE_KEY } from "@/lib/supabase";
 import { User } from "@supabase/supabase-js";
+import { useNavigate, useLocation } from "react-router-dom";
 
 type UserRole = "user" | "hotel_owner" | "admin";
 
@@ -23,14 +24,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   // Fetch user profile from Supabase
-  const fetchProfile = async (userId: string) => {
+  const fetchProfile = useCallback(async (userId: string) => {
     // Clear any stuck locks before fetching
-    try {
-      localStorage.removeItem('lock:sb-qkylzwrpttwlldmydleg-auth-token');
-      localStorage.removeItem('lock:sb-auth-token');
-    } catch {
-      // Ignore
-    }
+    clearAuthStorage();
     
     const { data, error } = await supabase
       .from("users")
@@ -43,46 +39,67 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return null;
     }
     return data as AuthContextType["profile"];
-  };
+  }, []);
 
-  const refreshProfile = async () => {
+  const refreshProfile = useCallback(async () => {
     if (user) {
       const profileData = await fetchProfile(user.id);
       setProfile(profileData);
     }
-  };
+  }, [user, fetchProfile]);
 
+  // Check session on mount
   useEffect(() => {
-    // Check current session on mount
     const checkSession = async () => {
       setIsLoading(true);
       try {
         // Clear any stuck locks before getting session
-        try {
-          localStorage.removeItem('lock:sb-qkylzwrpttwlldmydleg-auth-token');
-          localStorage.removeItem('lock:sb-auth-token');
-        } catch {
-          // Ignore
-        }
+        clearAuthStorage();
         
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error("Session check error:", error);
+          // Clear everything on error
+          clearAuthStorage();
+          setUser(null);
+          setProfile(null);
+        } else if (session?.user) {
           setUser(session.user);
           const profileData = await fetchProfile(session.user.id);
           setProfile(profileData);
+        } else {
+          setUser(null);
+          setProfile(null);
         }
       } catch (error) {
         console.error("Session check error:", error);
+        clearAuthStorage();
+        setUser(null);
+        setProfile(null);
       } finally {
         setIsLoading(false);
       }
     };
 
     checkSession();
+  }, [fetchProfile]);
 
-    // Subscribe to auth changes
+  // Subscribe to auth changes
+  useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log("Auth state changed:", event, session?.user?.email);
+        
+        if (event === 'SIGNED_OUT') {
+          // Immediately clear state on signout
+          setUser(null);
+          setProfile(null);
+          clearAuthStorage();
+          setIsLoading(false);
+          return;
+        }
+        
         if (session?.user) {
           setUser(session.user);
           const profileData = await fetchProfile(session.user.id);
@@ -96,28 +113,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [fetchProfile]);
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
+    // IMMEDIATELY clear local state first (fixes UI lag)
+    setUser(null);
+    setProfile(null);
+    setIsLoading(true);
+    
+    // Clear all storage
+    clearAuthStorage();
+    
     try {
-      await supabase.auth.signOut();
-    } catch (error: any) {
-      console.warn("SignOut error (continuing with local cleanup):", error?.message || error);
-    } finally {
-      // Always clear local state regardless of server response
-      setUser(null);
-      setProfile(null);
-      // Force clear any stuck auth locks from localStorage
-      try {
-        const keysToRemove = Object.keys(localStorage).filter(key => 
-          key.startsWith('sb-') || key.includes('supabase') || key.includes('lock:')
-        );
-        keysToRemove.forEach(key => localStorage.removeItem(key));
-      } catch (e) {
-        console.warn("Could not clear localStorage:", e);
+      // Call Supabase signOut
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.warn("Supabase signOut error:", error.message);
       }
+    } catch (error: any) {
+      console.warn("SignOut exception:", error?.message || error);
+    } finally {
+      // Double-check everything is cleared
+      clearAuthStorage();
+      
+      // Force a small delay to ensure state updates propagate
+      setTimeout(() => {
+        setIsLoading(false);
+      }, 100);
     }
-  };
+  }, []);
 
   const value: AuthContextType = {
     user,
@@ -155,5 +179,3 @@ export function useRequireAuth(redirectTo: string = "/login") {
 
   return { isAuthenticated, isLoading };
 }
-
-import { useNavigate, useLocation } from "react-router-dom";

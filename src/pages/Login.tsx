@@ -27,35 +27,17 @@ const Login = () => {
       toast({ title: "Please fill in all fields", variant: "destructive" });
       return;
     }
+    
+    // Require email format
+    if (!identifier.includes('@')) {
+      toast({ title: "Please enter a valid email address", variant: "destructive" });
+      return;
+    }
+    
     setLoading(true);
     
     try {
-      // Try to login with identifier as email first
-      // If it doesn't contain @, we'll try to look up the email by username
-      let emailToUse = identifier;
-      
-      if (!identifier.includes('@')) {
-        // It's a username, look up the email
-        const { data: userData, error: lookupError } = await supabase
-          .from('users')
-          .select('email')
-          .eq('username', identifier)
-          .single();
-        
-        if (lookupError || !userData) {
-          toast({ 
-            title: "User not found", 
-            description: "No user found with that username",
-            variant: "destructive" 
-          });
-          setLoading(false);
-          return;
-        }
-        
-        emailToUse = userData.email;
-      }
-      
-      const data = await db.signIn(emailToUse, password);
+      const data = await db.signIn(identifier, password);
       if (data.user) {
         // Check if email is verified
         if (!data.user.email_confirmed_at) {

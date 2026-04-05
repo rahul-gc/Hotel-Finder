@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/lib/supabase";
+import { supabase, STORAGE_KEY, clearAuthStorage } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 
@@ -13,6 +13,9 @@ const AuthCallback = () => {
   useEffect(() => {
     const handleAuthCallback = async () => {
       try {
+        // Clear any existing auth state first
+        clearAuthStorage();
+
         // Parse tokens from URL hash (Google OAuth sends #access_token=...)
         const hash = window.location.hash;
         const params = new URLSearchParams(hash.substring(1));
@@ -33,7 +36,7 @@ const AuthCallback = () => {
           return;
         }
         
-        // Manually store the session data
+        // Manually store the session data using CORRECT storage key
         setMessage("Storing session...");
         
         const sessionData = {
@@ -49,67 +52,84 @@ const AuthCallback = () => {
         // Store in localStorage using Supabase's expected format
         try {
           // Clear any existing lock keys first
-          localStorage.removeItem('lock:sb-qkylzwrpttwlldmydleg-auth-token');
-          localStorage.removeItem('lock:sb-auth-token');
+          clearAuthStorage();
           
-          // Store the session
-          localStorage.setItem('sb-auth-token', JSON.stringify(sessionData));
-          console.log("Session stored successfully");
+          // Store the session with CORRECT key
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(sessionData));
+          console.log("Session stored successfully with key:", STORAGE_KEY);
           
           // Set the session in Supabase so we can get user data
-          await supabase.auth.setSession({
+          const { error: setSessionError } = await supabase.auth.setSession({
             access_token: accessToken,
             refresh_token: refreshToken || '',
           });
+
+          if (setSessionError) {
+            console.error("Error setting session:", setSessionError);
+            throw setSessionError;
+          }
           
           // Get user data
-          const { data: { user } } = await supabase.auth.getUser();
+          const { data: { user }, error: userError } = await supabase.auth.getUser();
           
-          if (user) {
-            console.log("User authenticated:", user.email);
-            
-            // Check if user profile exists, if not create it
-            const { data: profile, error: profileError } = await supabase
+          if (userError || !user) {
+            console.error("No user data after OAuth:", userError);
+            throw new Error("Failed to get user data after authentication");
+          }
+          
+          console.log("User authenticated:", user.email);
+          setMessage("Checking your profile...");
+          
+          // Wait for database trigger to create profile, then fetch it
+          // The trigger runs automatically when auth.users row is created
+          let profile = null;
+          let attempts = 0;
+          const maxAttempts = 5;
+          
+          while (!profile && attempts < maxAttempts) {
+            const { data: profileData, error: profileError } = await supabase
               .from("users")
               .select("*")
               .eq("id", user.id)
               .single();
-
-            if (profileError && profileError.code === "PGRST116") {
-              // Profile doesn't exist, create it
-              setMessage("Setting up your account...");
-              console.log("Creating new user profile...");
-              
-              const { error: insertError } = await supabase.from("users").insert({
-                id: user.id,
-                email: user.email,
-                name: user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split("@")[0] || "User",
-                username: user.user_metadata?.preferred_username || user.email?.split("@")[0] || `user_${Date.now()}`,
-                role: "user",
-                is_verified: true,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-              });
-
-              if (insertError) {
-                console.error("Error creating profile:", insertError);
+            
+            if (profileError) {
+              console.log(`Profile not found yet, attempt ${attempts + 1}/${maxAttempts}`);
+              if (profileError.code === "PGRST116") {
+                // Profile doesn't exist yet, wait for trigger
+                attempts++;
+                await new Promise(resolve => setTimeout(resolve, 500));
               } else {
-                console.log("User profile created successfully");
+                console.error("Error fetching profile:", profileError);
+                break;
               }
             } else {
-              console.log("User profile already exists");
+              profile = profileData;
+              console.log("Profile found:", profile);
+              break;
             }
+          }
+          
+          if (!profile) {
+            console.warn("Profile not created by trigger, this may cause issues");
           }
           
           // Clear the hash
           window.location.hash = '';
           
-          // Force reload to let the app pick up the new session
-          window.location.href = '/';
+          // Show success and redirect
+          toast({ title: "Login successful!" });
           
-        } catch (storageError) {
+          // Navigate to home instead of reload for smoother UX
+          navigate("/", { replace: true });
+          
+        } catch (storageError: any) {
           console.error("Error storing session:", storageError);
-          toast({ title: "Authentication failed", variant: "destructive" });
+          toast({ 
+            title: "Authentication failed", 
+            description: storageError.message,
+            variant: "destructive" 
+          });
           navigate("/login", { replace: true });
         }
         

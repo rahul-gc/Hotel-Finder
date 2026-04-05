@@ -3,8 +3,45 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://your-project.supabase.co';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'your-anon-key';
 
-// Use Supabase defaults - let it handle everything internally
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Get the correct storage key based on Supabase project ID
+const getStorageKey = () => {
+  try {
+    const url = new URL(supabaseUrl);
+    const projectId = url.hostname.split('.')[0];
+    return `sb-${projectId}-auth-token`;
+  } catch {
+    return 'sb-auth-token';
+  }
+};
+
+export const STORAGE_KEY = getStorageKey();
+
+// Create Supabase client with proper configuration
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: false,
+    storageKey: STORAGE_KEY,
+  },
+});
+
+// Helper to clear all auth-related locks and storage
+export const clearAuthStorage = () => {
+  try {
+    // Clear all known lock keys
+    const lockKeys = Object.keys(localStorage).filter(key => 
+      key.startsWith('lock:sb-') || key.includes('auth-token-lock')
+    );
+    lockKeys.forEach(key => localStorage.removeItem(key));
+    
+    // Clear auth token
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem('sb-auth-token');
+  } catch (e) {
+    console.error('Error clearing auth storage:', e);
+  }
+};
 
 // Database helper functions for frontend
 export const db = {
@@ -33,14 +70,30 @@ export const db = {
   },
 
   async signOut() {
+    // Clear storage first to prevent lock issues
+    clearAuthStorage();
+    
     const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+    if (error) {
+      // Even if signOut fails, clear everything
+      clearAuthStorage();
+      throw error;
+    }
   },
 
   async getCurrentUser() {
     const { data: { user }, error } = await supabase.auth.getUser();
     if (error) throw error;
     return user;
+  },
+
+  async getSession() {
+    // Clear locks before getting session
+    clearAuthStorage();
+    
+    const { data: { session }, error } = await supabase.auth.getSession();
+    if (error) throw error;
+    return session;
   },
 
   // Hotels
@@ -306,3 +359,5 @@ export type Database = {
     };
   };
 };
+
+export type UserRole = 'user' | 'hotel_owner' | 'admin';
