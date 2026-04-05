@@ -149,11 +149,14 @@ const Index = () => {
                 <Button 
                   variant="ghost" 
                   size="sm" 
-                  onClick={(e) => {
-                    e.preventDefault();
-                    signOut().then(() => {
+                  onClick={async () => {
+                    try {
+                      await signOut();
                       toast({ title: "Logged out successfully" });
-                    });
+                    } catch (err) {
+                      console.error("Logout error:", err);
+                      toast({ title: "Logout failed", variant: "destructive" });
+                    }
                   }}
                 >
                   <LogOut className="h-4 w-4 mr-1" /> Logout
