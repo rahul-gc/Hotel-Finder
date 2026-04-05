@@ -39,6 +39,11 @@ DROP POLICY IF EXISTS "Users can view own bookings" ON public.bookings;
 DROP POLICY IF EXISTS "Users can create bookings" ON public.bookings;
 DROP POLICY IF EXISTS "Users can update own bookings" ON public.bookings;
 
+-- Drop existing policies with exact names
+DROP POLICY IF EXISTS "Allow users to view own bookings" ON public.bookings;
+DROP POLICY IF EXISTS "Allow users to create bookings" ON public.bookings;
+DROP POLICY IF EXISTS "Allow users to update own bookings" ON public.bookings;
+
 -- Allow authenticated users to view their own bookings
 CREATE POLICY "Allow users to view own bookings" ON public.bookings
   FOR SELECT 
@@ -60,10 +65,10 @@ CREATE POLICY "Allow users to update own bookings" ON public.bookings
 -- ==================== USERS TABLE ====================
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 
--- Drop and recreate policies
-DROP POLICY IF EXISTS "Allow insert for new users" ON public.users;
-DROP POLICY IF EXISTS "Users can view own profile" ON public.users;
-DROP POLICY IF EXISTS "Users can update own profile" ON public.users;
+-- Drop and recreate policies with exact names
+DROP POLICY IF EXISTS "Allow users to view own profile" ON public.users;
+DROP POLICY IF EXISTS "Allow users to update own profile" ON public.users;
+DROP POLICY IF EXISTS "Allow trigger to create profile" ON public.users;
 
 -- Allow users to view their own profile
 CREATE POLICY "Allow users to view own profile" ON public.users
