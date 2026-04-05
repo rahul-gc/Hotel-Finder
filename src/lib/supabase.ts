@@ -3,32 +3,8 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://your-project.supabase.co';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'your-anon-key';
 
-// In-memory storage to avoid localStorage lock issues
-const memoryStorage: Record<string, string> = {};
-
-const customStorage = {
-  getItem: (key: string) => {
-    return Promise.resolve(memoryStorage[key] || null);
-  },
-  setItem: (key: string, value: string) => {
-    memoryStorage[key] = value;
-    return Promise.resolve();
-  },
-  removeItem: (key: string) => {
-    delete memoryStorage[key];
-    return Promise.resolve();
-  },
-};
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: false,
-    storage: customStorage,
-    storageKey: 'sb-auth-token',
-  },
-});
+// Use Supabase defaults - let it handle everything internally
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Database helper functions for frontend
 export const db = {
