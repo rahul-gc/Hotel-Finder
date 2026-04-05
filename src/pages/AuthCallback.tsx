@@ -54,23 +54,15 @@ const AuthCallback = () => {
           // Clear any existing lock keys first
           clearAuthStorage();
           
-          // Store the session with CORRECT key
+          // Store the session - Supabase will pick it up on next page load
           localStorage.setItem(STORAGE_KEY, JSON.stringify(sessionData));
           console.log("Session stored successfully with key:", STORAGE_KEY);
           
-          // Set the session in Supabase so we can get user data
-          const { error: setSessionError } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken || '',
-          });
-
-          if (setSessionError) {
-            console.error("Error setting session:", setSessionError);
-            throw setSessionError;
-          }
+          // Small delay to ensure storage is written
+          await new Promise(resolve => setTimeout(resolve, 100));
           
-          // Get user data
-          const { data: { user }, error: userError } = await supabase.auth.getUser();
+          // Get user data directly from the token
+          const { data: { user }, error: userError } = await supabase.auth.getUser(accessToken);
           
           if (userError || !user) {
             console.error("No user data after OAuth:", userError);

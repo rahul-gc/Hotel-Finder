@@ -3,45 +3,62 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://your-project.supabase.co';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'your-anon-key';
 
-// Get the correct storage key based on Supabase project ID
-const getStorageKey = () => {
-  try {
-    const url = new URL(supabaseUrl);
-    const projectId = url.hostname.split('.')[0];
-    return `sb-${projectId}-auth-token`;
-  } catch {
-    return 'sb-auth-token';
+// Storage key
+const STORAGE_KEY = 'sb-auth-token';
+
+// Simple custom storage that bypasses Supabase's lock mechanism
+const customStorage = {
+  getItem: (key: string): string | null => {
+    try {
+      return localStorage.getItem(key);
+    } catch {
+      return null;
+    }
+  },
+  setItem: (key: string, value: string): void => {
+    try {
+      localStorage.setItem(key, value);
+    } catch {
+      // Ignore
+    }
+  },
+  removeItem: (key: string): void => {
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      // Ignore
+    }
   }
 };
 
-export const STORAGE_KEY = getStorageKey();
-
-// Create Supabase client with proper configuration
+// Disable session persistence to avoid all lock issues
+// We'll manually store and retrieve the session
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    persistSession: true,
-    autoRefreshToken: true,
+    persistSession: false, // DISABLE - we handle it manually
+    autoRefreshToken: false, // DISABLE
     detectSessionInUrl: false,
+    storage: customStorage,
     storageKey: STORAGE_KEY,
   },
 });
 
-// Helper to clear all auth-related locks and storage
+// Helper to clear all auth-related storage
 export const clearAuthStorage = () => {
   try {
-    // Clear all known lock keys
-    const lockKeys = Object.keys(localStorage).filter(key => 
-      key.startsWith('lock:sb-') || key.includes('auth-token-lock')
-    );
-    lockKeys.forEach(key => localStorage.removeItem(key));
-    
-    // Clear auth token
-    localStorage.removeItem(STORAGE_KEY);
-    localStorage.removeItem('sb-auth-token');
+    // Clear all known lock keys first
+    const keys = Object.keys(localStorage);
+    keys.forEach(key => {
+      if (key.startsWith('lock:sb-') || key.includes('supabase') || key === STORAGE_KEY || key === 'sb-auth-token') {
+        localStorage.removeItem(key);
+      }
+    });
   } catch (e) {
     console.error('Error clearing auth storage:', e);
   }
 };
+
+export { STORAGE_KEY };
 
 // Database helper functions for frontend
 export const db = {
