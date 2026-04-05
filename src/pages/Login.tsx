@@ -6,12 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { db } from "@/lib/supabase";
+import { db, supabase } from "@/lib/supabase";
 
 const Login = () => {
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isEmail, setIsEmail] = useState(true);
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
@@ -22,14 +23,39 @@ const Login = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) {
+    if (!identifier || !password) {
       toast({ title: "Please fill in all fields", variant: "destructive" });
       return;
     }
     setLoading(true);
     
     try {
-      const data = await db.signIn(email, password);
+      // Try to login with identifier as email first
+      // If it doesn't contain @, we'll try to look up the email by username
+      let emailToUse = identifier;
+      
+      if (!identifier.includes('@')) {
+        // It's a username, look up the email
+        const { data: userData, error: lookupError } = await supabase
+          .from('users')
+          .select('email')
+          .eq('username', identifier)
+          .single();
+        
+        if (lookupError || !userData) {
+          toast({ 
+            title: "User not found", 
+            description: "No user found with that username",
+            variant: "destructive" 
+          });
+          setLoading(false);
+          return;
+        }
+        
+        emailToUse = userData.email;
+      }
+      
+      const data = await db.signIn(emailToUse, password);
       if (data.user) {
         // Check if email is verified
         if (!data.user.email_confirmed_at) {
@@ -72,8 +98,16 @@ const Login = () => {
           <CardContent>
             <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-2">
-                <Label>Email</Label>
-                <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
+                <Label>Email or Username</Label>
+                <Input 
+                  type="text" 
+                  value={identifier} 
+                  onChange={(e) => setIdentifier(e.target.value)} 
+                  placeholder="Enter email or username" 
+                />
+                <p className="text-xs text-muted-foreground">
+                  Enter your email or username to login
+                </p>
               </div>
               <div className="space-y-2">
                 <Label>Password</Label>

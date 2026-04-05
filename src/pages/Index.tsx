@@ -138,6 +138,14 @@ const Index = () => {
                     <Button variant="ghost" size="sm">Admin</Button>
                   </Link>
                 )}
+                {(profile?.role === 'hotel_owner' || profile?.role === 'admin') && (
+                  <Link to="/my-hotels">
+                    <Button variant="ghost" size="sm">My Hotels</Button>
+                  </Link>
+                )}
+                <Link to="/my-bookings">
+                  <Button variant="ghost" size="sm">My Bookings</Button>
+                </Link>
                 <Button 
                   variant="ghost" 
                   size="sm" 

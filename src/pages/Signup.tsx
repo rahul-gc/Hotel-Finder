@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Hotel, ArrowLeft, User, Building2 } from "lucide-react";
+import { Hotel, ArrowLeft, User, Building2, AtSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,6 +10,7 @@ import { db } from "@/lib/supabase";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 const Signup = () => {
+  const [username, setUsername] = useState("");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -20,19 +21,26 @@ const Signup = () => {
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fullName || !email || !password) {
-      toast({ title: "Please fill in all fields", variant: "destructive" });
+    if (!username || !fullName || !password) {
+      toast({ title: "Please fill in all required fields", variant: "destructive" });
       return;
     }
     if (password.length < 6) {
       toast({ title: "Password must be at least 6 characters", variant: "destructive" });
       return;
     }
+    if (!/^[a-zA-Z0-9_]{3,20}$/.test(username)) {
+      toast({ title: "Username must be 3-20 characters (letters, numbers, underscore only)", variant: "destructive" });
+      return;
+    }
     setLoading(true);
     
     try {
-      // Sign up with Supabase - trigger will auto-create profile
-      const data = await db.signUp(email, password, { name: fullName, role: role });
+      const data = await db.signUp(email || `${username}@placeholder.com`, password, { 
+        name: fullName, 
+        username: username,
+        role: role 
+      });
       
       if (data.user) {
         toast({ title: "Account created! Please check your email to verify, then log in." });
@@ -66,15 +74,19 @@ const Signup = () => {
           <CardContent>
             <form onSubmit={handleSignup} className="space-y-4">
               <div className="space-y-2">
-                <Label>Full Name</Label>
+                <Label>Username *</Label>
+                <Input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Choose a username (3-20 chars)" />
+              </div>
+              <div className="space-y-2">
+                <Label>Full Name *</Label>
                 <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Your full name" />
               </div>
               <div className="space-y-2">
-                <Label>Email</Label>
+                <Label>Email (optional)</Label>
                 <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
               </div>
               <div className="space-y-2">
-                <Label>Password</Label>
+                <Label>Password *</Label>
                 <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Min. 6 characters" />
               </div>
               
