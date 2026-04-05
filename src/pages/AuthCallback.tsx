@@ -13,70 +13,35 @@ const AuthCallback = () => {
   useEffect(() => {
     const handleAuthCallback = async () => {
       try {
-        // Let Supabase handle the OAuth callback automatically
-        const { data, error } = await supabase.auth.getSession();
+        setLoading(true);
+        setMessage("Completing sign in...");
+        
+        // Wait for Supabase to process the callback
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Just check if we have a session and redirect
+        const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
-          console.error("Auth callback error:", error);
-          toast({ title: "Authentication failed", variant: "destructive" });
-          navigate("/login", { replace: true });
-          return;
+          console.error("Session error:", error);
+          throw error;
         }
         
-        if (!data.session) {
-          // Wait a bit for session to be established
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          
-          const { data: retryData, error: retryError } = await supabase.auth.getSession();
-          
-          if (retryError || !retryData.session) {
-            console.error("No session established");
-            toast({ title: "Authentication failed", variant: "destructive" });
-            navigate("/login", { replace: true });
-            return;
-          }
+        if (!session) {
+          console.error("No session found after callback");
+          throw new Error("Authentication failed");
         }
         
-        // Get user data
-        const { data: { user }, error: userError } = await supabase.auth.getUser();
-        
-        if (userError || !user) {
-          console.error("No user data:", userError);
-          throw new Error("Failed to get user");
-        }
-        
-        console.log("Authenticated:", user.email);
-        
-        // Check if profile exists
-        const { data: profile, error: profileError } = await supabase
-          .from("users")
-          .select("*")
-          .eq("id", user.id)
-          .single();
-        
-        if (profileError && profileError.code === "PGRST116") {
-          console.log("Creating profile...");
-          // Create profile manually if trigger didn't work
-          const { error: insertError } = await supabase.from("users").insert({
-            id: user.id,
-            email: user.email,
-            username: user.email?.split("@")[0] + "_" + user.id.substring(0, 4),
-            name: user.user_metadata?.full_name || user.email?.split("@")[0] || "User",
-            role: "user",
-            is_verified: true,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          });
-          
-          if (insertError) {
-            console.error("Error creating profile:", insertError);
-          }
-        }
+        console.log("Authentication successful!");
+        setMessage("Success! Redirecting...");
         
         // Clear hash and redirect
         window.location.hash = '';
         toast({ title: "Login successful!" });
-        navigate("/", { replace: true });
+        
+        setTimeout(() => {
+          navigate("/", { replace: true });
+        }, 1000);
         
       } catch (error: any) {
         console.error("Auth callback error:", error);

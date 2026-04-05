@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Search, Hotel, MapPin, Star, Shield, ArrowRight, Phone, Mail, CheckCircle2, Wifi, Car, Utensils, Waves, Dumbbell, Wine, Coffee, User, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -62,6 +62,7 @@ interface HotelData {
 
 const Index = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [hotels, setHotels] = useState<HotelData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -150,11 +151,17 @@ const Index = () => {
                   variant="ghost" 
                   size="sm" 
                   onClick={async () => {
-                    await signOut();
-                    toast({ title: "Logged out successfully" });
-                    // Reload to ensure clean state
-                    window.location.href = "/";
+                    try {
+                      await signOut();
+                      toast({ title: "Logged out successfully" });
+                      // Navigate to home to ensure clean state
+                      navigate("/", { replace: true });
+                    } catch (error) {
+                      console.error("Logout error:", error);
+                      toast({ title: "Logout failed", variant: "destructive" });
+                    }
                   }}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
                 >
                   <LogOut className="h-4 w-4 mr-1" /> Logout
                 </Button>
@@ -193,9 +200,9 @@ const Index = () => {
             
             {/* Search Bar */}
             <div className="mx-auto flex max-w-2xl flex-col gap-3 sm:flex-row">
-              <Link to="/search" className="flex-1">
-                <Button size="lg" className="w-full gap-2 text-lg h-14">
-                  <Search className="h-5 w-5" />
+              <Link to="/search">
+                <Button size="lg" className="bg-blue-600 hover:bg-blue-700 text-white">
+                  <Search className="mr-2 h-5 w-5" />
                   Search Hotels
                 </Button>
               </Link>
