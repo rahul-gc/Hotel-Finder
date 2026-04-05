@@ -60,6 +60,35 @@ const AuthCallback = () => {
               }
             }
           }
+          
+          // If still no session, try parsing hash directly
+          if (!session && window.location.hash) {
+            console.log("Trying to parse hash for tokens...");
+            const hashParams = new URLSearchParams(window.location.hash.substring(1));
+            const accessToken = hashParams.get('access_token');
+            const refreshToken = hashParams.get('refresh_token');
+            
+            if (accessToken) {
+              console.log("Found access_token in hash, setting session...");
+              setMessage("Processing authentication...");
+              
+              const { data, error: setSessionError } = await supabase.auth.setSession({
+                access_token: accessToken,
+                refresh_token: refreshToken || '',
+              });
+              
+              if (setSessionError) {
+                console.error("Set session error:", setSessionError);
+              } else if (data.session) {
+                console.log("Session set successfully from hash");
+                // Re-fetch session to confirm
+                const { data: { session: hashSession } } = await supabase.auth.getSession();
+                if (hashSession) {
+                  Object.assign(session || {}, hashSession);
+                }
+              }
+            }
+          }
         }
 
         if (session?.user) {
