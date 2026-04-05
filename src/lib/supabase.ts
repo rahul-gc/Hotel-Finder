@@ -3,13 +3,12 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://your-project.supabase.co';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'your-anon-key';
 
-// Use Supabase's default storage - let it handle locks internally
+// Minimal Supabase config to avoid lock contention
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true, // Enable automatic session detection
-    storageKey: 'sb-auth-token',
+    persistSession: false, // Disable to avoid lock issues
+    autoRefreshToken: false,
+    detectSessionInUrl: false,
   },
 });
 

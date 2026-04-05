@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 
@@ -13,96 +12,69 @@ const AuthCallback = () => {
   useEffect(() => {
     const handleAuthCallback = async () => {
       try {
-        // Clear any existing lock to prevent contention
+        // Parse tokens from URL hash (Google OAuth sends #access_token=...)
+        const hash = window.location.hash;
+        const params = new URLSearchParams(hash.substring(1));
+        
+        const accessToken = params.get('access_token');
+        const refreshToken = params.get('refresh_token');
+        const expiresIn = params.get('expires_in');
+        const tokenType = params.get('token_type') || 'bearer';
+        const providerToken = params.get('provider_token');
+        
+        console.log("Auth callback - hash present:", !!hash);
+        console.log("Auth callback - access_token present:", !!accessToken);
+        
+        if (!accessToken) {
+          console.error("No access token found in URL hash");
+          toast({ title: "Authentication failed", variant: "destructive" });
+          navigate("/login", { replace: true });
+          return;
+        }
+        
+        // Manually store the session data
+        setMessage("Storing session...");
+        
+        const sessionData = {
+          access_token: accessToken,
+          refresh_token: refreshToken,
+          expires_in: parseInt(expiresIn || '3600', 10),
+          expires_at: Math.floor(Date.now() / 1000) + parseInt(expiresIn || '3600', 10),
+          token_type: tokenType,
+          provider_token: providerToken,
+          user: null // Will fetch after storing
+        };
+        
+        // Store in localStorage using Supabase's expected format
         try {
-          localStorage.removeItem('lock:sb-qkylzwrpttwlldmydleg-auth-token');
-          localStorage.removeItem('lock:sb-auth-token');
-          // Clear the main storage to force fresh session detection
-          localStorage.removeItem('sb-auth-token');
-        } catch (e) {
-          // Ignore
-        }
-        
-        // Check if hash contains access_token (Google OAuth response)
-        if (window.location.hash && window.location.hash.includes('access_token')) {
-          console.log("Found access_token in hash, letting Supabase process...");
-          // Wait for Supabase to auto-process the hash
-          await new Promise(resolve => setTimeout(resolve, 2000));
-        }
-        
-        // Try up to 3 times to get session with lock clearing between attempts
-        let session = null;
-        let error = null;
-        
-        for (let attempt = 1; attempt <= 3; attempt++) {
-          try {
-            console.log(`Session fetch attempt ${attempt}...`);
-            const result = await supabase.auth.getSession();
-            session = result.data.session;
-            error = result.error;
-            
-            if (session) {
-              console.log("Session found on attempt", attempt);
-              break;
-            }
-            
-            if (attempt < 3) {
-              // Clear lock before next attempt
-              try {
-                localStorage.removeItem('lock:sb-qkylzwrpttwlldmydleg-auth-token');
-                localStorage.removeItem('lock:sb-auth-token');
-              } catch {}
-              await new Promise(resolve => setTimeout(resolve, 1000));
-            }
-          } catch (attemptError) {
-            console.warn(`Attempt ${attempt} failed:`, attemptError);
-            if (attempt < 3) {
-              await new Promise(resolve => setTimeout(resolve, 1000));
-            }
-          }
-        }
-        
-        console.log("Auth callback - Session found:", !!session);
-        
-        if (error) {
-          throw error;
-        }
-
-        if (session?.user) {
-          console.log("User authenticated:", session.user.email);
-          // Check if user profile exists, if not create it
-          const { data: profile, error: profileError } = await supabase
-            .from("users")
-            .select("*")
-            .eq("id", session.user.id)
-            .single();
-
-          if (profileError && profileError.code === "PGRST116") {
-            // Profile doesn't exist, create it
-            setMessage("Setting up your account...");
-            const { error: insertError } = await supabase.from("users").insert({
-              id: session.user.id,
-              email: session.user.email,
-              name: session.user.user_metadata.full_name || session.user.user_metadata.name || session.user.email?.split("@")[0] || "User",
-              username: session.user.user_metadata.preferred_username || session.user.email?.split("@")[0] || `user_${Date.now()}`,
-              role: "user",
-              is_verified: true,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            });
-
-            if (insertError) {
-              console.error("Error creating profile:", insertError);
-            }
-          }
-
-          toast({ title: "Login successful!" });
-          navigate("/", { replace: true });
-        } else {
-          // No session found, redirect to login
+          // Aggressively clear ALL Supabase-related storage
+          const keysToRemove = Object.keys(localStorage).filter(key => 
+            key.startsWith('sb-') || key.includes('lock') || key.includes('supabase')
+          );
+          keysToRemove.forEach(key => localStorage.removeItem(key));
+          console.log("Cleared", keysToRemove.length, "storage keys");
+          
+          // Small delay to ensure locks are released
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+          // Store the session
+          localStorage.setItem('sb-auth-token', JSON.stringify(sessionData));
+          console.log("Session stored successfully");
+          
+          // Clear the hash
+          window.location.hash = '';
+          
+          // Force reload to ensure clean state
+          setTimeout(() => {
+            window.location.href = '/';
+          }, 100);
+          
+        } catch (storageError) {
+          console.error("Error storing session:", storageError);
           toast({ title: "Authentication failed", variant: "destructive" });
           navigate("/login", { replace: true });
         }
+        
       } catch (error: any) {
         console.error("Auth callback error:", error);
         toast({ 
