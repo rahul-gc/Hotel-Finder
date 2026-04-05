@@ -1,16 +1,19 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Hotel, ArrowLeft } from "lucide-react";
+import { Hotel, ArrowLeft, User, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { db, supabase } from "@/lib/supabase";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 const Signup = () => {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [role, setRole] = useState<"user" | "hotel_owner">("user");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -26,12 +29,39 @@ const Signup = () => {
       return;
     }
     setLoading(true);
-    // TODO: Supabase auth
-    setTimeout(() => {
-      toast({ title: "Account created!" });
-      navigate("/");
+    
+    try {
+      // Sign up with Supabase
+      const data = await db.signUp(email, password, { name: fullName });
+      
+      if (data.user) {
+        // Create user profile in public.users table with role
+        const { error: profileError } = await supabase
+          .from('users')
+          .insert([{
+            id: data.user.id,
+            email: email,
+            name: fullName,
+            role: role,
+            is_verified: true
+          }]);
+        
+        if (profileError) {
+          console.error('Profile creation error:', profileError);
+        }
+        
+        toast({ title: "Account created successfully! Please log in." });
+        navigate("/login");
+      }
+    } catch (error: any) {
+      toast({ 
+        title: "Signup failed", 
+        description: error.message || "Something went wrong",
+        variant: "destructive" 
+      });
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   };
 
   return (
@@ -62,6 +92,25 @@ const Signup = () => {
                 <Label>Password</Label>
                 <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Min. 6 characters" />
               </div>
+              
+              <div className="space-y-2">
+                <Label>I want to</Label>
+                <RadioGroup value={role} onValueChange={(v) => setRole(v as "user" | "hotel_owner")} className="grid grid-cols-2 gap-2">
+                  <div className={`flex items-center space-x-2 rounded-lg border p-3 cursor-pointer transition-colors ${role === 'user' ? 'border-primary bg-primary/5' : ''}`}>
+                    <RadioGroupItem value="user" id="user" />
+                    <Label htmlFor="user" className="flex items-center gap-2 cursor-pointer">
+                      <User className="h-4 w-4" /> Find Hotels
+                    </Label>
+                  </div>
+                  <div className={`flex items-center space-x-2 rounded-lg border p-3 cursor-pointer transition-colors ${role === 'hotel_owner' ? 'border-primary bg-primary/5' : ''}`}>
+                    <RadioGroupItem value="hotel_owner" id="hotel_owner" />
+                    <Label htmlFor="hotel_owner" className="flex items-center gap-2 cursor-pointer">
+                      <Building2 className="h-4 w-4" /> List My Hotel
+                    </Label>
+                  </div>
+                </RadioGroup>
+              </div>
+              
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? "Creating account..." : "Sign up"}
               </Button>

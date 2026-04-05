@@ -1,10 +1,11 @@
 import { Link } from "react-router-dom";
-import { Search, Hotel, MapPin, Star, Shield, ArrowRight, Phone, Mail, CheckCircle2, Wifi, Car, Utensils, Waves, Dumbbell, Wine, Coffee } from "lucide-react";
+import { Search, Hotel, MapPin, Star, Shield, ArrowRight, Phone, Mail, CheckCircle2, Wifi, Car, Utensils, Waves, Dumbbell, Wine, Coffee, User, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/contexts/AuthContext";
 import logoImg from "/logo.png";
 
 const FEATURED_CITIES = [
@@ -63,6 +64,7 @@ const Index = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState({ hotels: 0, cities: 4, travelers: 12450 });
+  const { isAuthenticated, profile, signOut } = useAuth();
 
   useEffect(() => {
     fetchHotels();
@@ -124,12 +126,30 @@ const Index = () => {
             <Link to="/search">
               <Button variant="ghost" size="sm" className="hidden sm:flex">Search Hotels</Button>
             </Link>
-            <Link to="/login">
-              <Button variant="ghost" size="sm">Log in</Button>
-            </Link>
-            <Link to="/signup">
-              <Button size="sm">Sign up</Button>
-            </Link>
+            {isAuthenticated ? (
+              <>
+                <span className="text-sm text-muted-foreground hidden md:inline">
+                  Hi, {profile?.name?.split(' ')[0] || 'User'}
+                </span>
+                {profile?.role === 'admin' && (
+                  <Link to="/admin">
+                    <Button variant="ghost" size="sm">Admin</Button>
+                  </Link>
+                )}
+                <Button variant="ghost" size="sm" onClick={signOut}>
+                  <LogOut className="h-4 w-4 mr-1" /> Logout
+                </Button>
+              </>
+            ) : (
+              <>
+                <Link to="/login">
+                  <Button variant="ghost" size="sm">Log in</Button>
+                </Link>
+                <Link to="/signup">
+                  <Button size="sm">Sign up</Button>
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </nav>

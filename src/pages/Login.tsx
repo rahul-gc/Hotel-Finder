@@ -1,18 +1,24 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Hotel, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { db } from "@/lib/supabase";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
+
+  // Get redirect path from query params
+  const searchParams = new URLSearchParams(location.search);
+  const redirectTo = searchParams.get("redirect") || "/";
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,12 +27,22 @@ const Login = () => {
       return;
     }
     setLoading(true);
-    // TODO: Supabase auth
-    setTimeout(() => {
-      toast({ title: "Login successful!" });
-      navigate("/");
+    
+    try {
+      const data = await db.signIn(email, password);
+      if (data.user) {
+        toast({ title: "Login successful!" });
+        navigate(redirectTo);
+      }
+    } catch (error: any) {
+      toast({ 
+        title: "Login failed", 
+        description: error.message || "Invalid credentials",
+        variant: "destructive" 
+      });
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   };
 
   return (

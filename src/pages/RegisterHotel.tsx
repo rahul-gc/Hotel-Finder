@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, ArrowRight, MapPin, Upload, X, Check, Hotel } from "lucide-react";
+import { ArrowLeft, ArrowRight, MapPin, Upload, X, Check, Hotel, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,6 +9,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AMENITIES, CITIES } from "@/lib/types";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/lib/supabase";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -40,13 +43,44 @@ const initialForm: FormData = {
 };
 
 const RegisterHotel = () => {
+  const { isAuthenticated, profile, isLoading } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  
   const [step, setStep] = useState(0);
-  const [form, setForm] = useState<FormData>(initialForm);
+  const [form, setForm] = useState<FormData>({
+    ...initialForm,
+    ownerName: profile?.name || "",
+    email: profile?.email || "",
+  });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
-  const navigate = useNavigate();
+  const [submitting, setSubmitting] = useState(false);
   const mapRef = useRef<HTMLDivElement>(null);
   const markerRef = useRef<L.Marker | null>(null);
+
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      toast({ 
+        title: "Login Required", 
+        description: "Please login to register your hotel.",
+        variant: "destructive" 
+      });
+      navigate("/login?redirect=/register-hotel");
+    }
+  }, [isAuthenticated, isLoading, navigate, toast]);
+
+  // Update form when profile loads
+  useEffect(() => {
+    if (profile) {
+      setForm(prev => ({
+        ...prev,
+        ownerName: profile.name || prev.ownerName,
+        email: profile.email || prev.email,
+      }));
+    }
+  }, [profile]);
 
   const updateField = <K extends keyof FormData>(key: K, value: FormData[K]) => {
     setForm((f) => ({ ...f, [key]: value }));
@@ -77,7 +111,76 @@ const RegisterHotel = () => {
 
   const next = () => { if (validateStep()) setStep((s) => Math.min(s + 1, STEPS.length - 1)); };
   const prev = () => setStep((s) => Math.max(s - 1, 0));
-  const handleSubmit = () => { if (validateStep()) setSubmitted(true); };
+  
+  const handleSubmit = async () => {
+    if (!validateStep() || !profile) return;
+    
+    setSubmitting(true);
+    try {
+      // Create hotel with logged-in user as owner
+      const hotelData = {
+        owner_id: profile.id,
+        name: form.hotelName,
+        description: form.description,
+        address: form.address,
+        city: form.city,
+        latitude: form.latitude,
+        longitude: form.longitude,
+        price_per_night: Number(form.pricePerNight),
+        num_rooms: Number(form.numRooms),
+        amenities: form.amenities,
+        phone: form.phone,
+        email: form.email,
+        status: "pending",
+        average_rating: 0,
+        review_count: 0,
+      };
+
+      const { data: hotel, error: hotelError } = await supabase
+        .from('hotels')
+        .insert([hotelData])
+        .select()
+        .single();
+
+      if (hotelError) throw hotelError;
+
+      // Upload images if any
+      if (hotel && form.images.length > 0) {
+        for (let i = 0; i < form.images.length; i++) {
+          const file = form.images[i];
+          const fileExt = file.name.split('.').pop();
+          const fileName = `${hotel.id}/${Date.now()}_${i}.${fileExt}`;
+          
+          const { error: uploadError } = await supabase.storage
+            .from('hotel-images')
+            .upload(fileName, file);
+          
+          if (!uploadError) {
+            const { data: { publicUrl } } = supabase.storage
+              .from('hotel-images')
+              .getPublicUrl(fileName);
+            
+            await supabase.from('hotel_images').insert([{
+              hotel_id: hotel.id,
+              image_url: publicUrl,
+              is_primary: i === 0,
+            }]);
+          }
+        }
+      }
+
+      toast({ title: "Hotel registered successfully!" });
+      setSubmitted(true);
+    } catch (error: any) {
+      toast({ 
+        title: "Registration failed", 
+        description: error.message || "Something went wrong",
+        variant: "destructive" 
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   // Map for step 1
   useEffect(() => {
@@ -326,9 +429,13 @@ const RegisterHotel = () => {
                   Next <ArrowRight className="h-4 w-4 ml-1" />
                 </Button>
               ) : (
-                <Button onClick={handleSubmit} className="bg-success hover:bg-success/90 text-success-foreground">
-                  Submit for Verification
-                </Button>
+                <Button 
+                onClick={handleSubmit} 
+                className="bg-success hover:bg-success/90 text-success-foreground"
+                disabled={submitting}
+              >
+                {submitting ? "Submitting..." : "Submit for Verification"}
+              </Button>
               )}
             </div>
           </CardContent>
