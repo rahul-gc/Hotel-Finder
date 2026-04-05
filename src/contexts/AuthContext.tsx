@@ -83,9 +83,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
-    setProfile(null);
+    try {
+      await supabase.auth.signOut();
+    } catch (error: any) {
+      console.warn("SignOut error (continuing with local cleanup):", error?.message || error);
+    } finally {
+      // Always clear local state regardless of server response
+      setUser(null);
+      setProfile(null);
+      // Force clear any stuck auth locks from localStorage
+      try {
+        const keysToRemove = Object.keys(localStorage).filter(key => 
+          key.startsWith('sb-') || key.includes('supabase') || key.includes('lock:')
+        );
+        keysToRemove.forEach(key => localStorage.removeItem(key));
+      } catch (e) {
+        console.warn("Could not clear localStorage:", e);
+      }
+    }
   };
 
   const value: AuthContextType = {

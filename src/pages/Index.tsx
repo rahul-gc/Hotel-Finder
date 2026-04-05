@@ -150,13 +150,10 @@ const Index = () => {
                   variant="ghost" 
                   size="sm" 
                   onClick={async () => {
-                    try {
-                      await signOut();
-                      toast({ title: "Logged out successfully" });
-                    } catch (err) {
-                      console.error("Logout error:", err);
-                      toast({ title: "Logout failed", variant: "destructive" });
-                    }
+                    await signOut();
+                    toast({ title: "Logged out successfully" });
+                    // Reload to ensure clean state
+                    window.location.href = "/";
                   }}
                 >
                   <LogOut className="h-4 w-4 mr-1" /> Logout
