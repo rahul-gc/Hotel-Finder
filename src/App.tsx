@@ -11,6 +11,8 @@ import RegisterHotel from "./pages/RegisterHotel.tsx";
 import Login from "./pages/Login.tsx";
 import Signup from "./pages/Signup.tsx";
 import About from "./pages/About.tsx";
+import Booking from "./pages/Booking.tsx";
+import MyBookings from "./pages/MyBookings.tsx";
 import AdminDashboard from "./pages/AdminDashboard.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
@@ -31,6 +33,8 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
             <Route path="/about" element={<About />} />
+            <Route path="/booking" element={<Booking />} />
+            <Route path="/my-bookings" element={<MyBookings />} />
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

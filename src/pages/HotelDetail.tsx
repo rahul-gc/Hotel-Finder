@@ -342,7 +342,7 @@ const HotelDetail = () => {
               <p className="text-2xl font-bold text-primary">{formatPrice(hotel.price_per_night)}</p>
               <p className="text-sm text-muted-foreground">per night</p>
             </div>
-            <Link to={`/book/${hotel.id}`}>
+            <Link to={`/booking?hotelId=${hotel.id}&hotelName=${encodeURIComponent(hotel.name)}&price=${hotel.price_per_night}`}>
               <Button size="lg" className="gap-2">
                 <Calendar className="h-5 w-5" />
                 Book Now
