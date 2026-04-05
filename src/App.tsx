@@ -16,6 +16,7 @@ import MyBookings from "./pages/MyBookings.tsx";
 import MyHotels from "./pages/MyHotels.tsx";
 import AdminDashboard from "./pages/AdminDashboard.tsx";
 import NotFound from "./pages/NotFound.tsx";
+import AuthCallback from "./pages/AuthCallback.tsx";
 
 const queryClient = new QueryClient();
 
@@ -38,6 +39,7 @@ const App = () => (
             <Route path="/my-bookings" element={<MyBookings />} />
             <Route path="/my-hotels" element={<MyHotels />} />
             <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
