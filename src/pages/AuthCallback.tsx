@@ -67,25 +67,34 @@ const AuthCallback = () => {
             const hashParams = new URLSearchParams(window.location.hash.substring(1));
             const accessToken = hashParams.get('access_token');
             const refreshToken = hashParams.get('refresh_token');
+            const expiresIn = hashParams.get('expires_in');
+            const tokenType = hashParams.get('token_type') || 'bearer';
             
             if (accessToken) {
-              console.log("Found access_token in hash, setting session...");
+              console.log("Found access_token in hash, storing manually...");
               setMessage("Processing authentication...");
               
-              const { data, error: setSessionError } = await supabase.auth.setSession({
-                access_token: accessToken,
-                refresh_token: refreshToken || '',
-              });
-              
-              if (setSessionError) {
-                console.error("Set session error:", setSessionError);
-              } else if (data.session) {
-                console.log("Session set successfully from hash");
-                // Re-fetch session to confirm
-                const { data: { session: hashSession } } = await supabase.auth.getSession();
-                if (hashSession) {
-                  Object.assign(session || {}, hashSession);
-                }
+              // Store tokens directly in localStorage to avoid Supabase lock
+              try {
+                const sessionData = {
+                  access_token: accessToken,
+                  refresh_token: refreshToken || null,
+                  expires_in: parseInt(expiresIn || '3600', 10),
+                  token_type: tokenType,
+                  user: null // Will be fetched on reload
+                };
+                
+                // Use the custom storage key that matches our supabase config
+                localStorage.setItem('sb-auth-token', JSON.stringify(sessionData));
+                console.log("Tokens stored in localStorage");
+                
+                // Clear the hash and reload to let Supabase pick up the session naturally
+                window.location.hash = '';
+                console.log("Reloading to apply session...");
+                window.location.reload();
+                return; // Stop here, page will reload
+              } catch (storageError) {
+                console.error("Error storing tokens:", storageError);
               }
             }
           }
