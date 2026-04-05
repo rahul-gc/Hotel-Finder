@@ -31,6 +31,16 @@ const Login = () => {
     try {
       const data = await db.signIn(email, password);
       if (data.user) {
+        // Check if email is verified
+        if (!data.user.email_confirmed_at) {
+          toast({ 
+            title: "Email not verified", 
+            description: "Please check your email and click the confirmation link before logging in.",
+            variant: "destructive" 
+          });
+          setLoading(false);
+          return;
+        }
         toast({ title: "Login successful!" });
         navigate(redirectTo);
       }
