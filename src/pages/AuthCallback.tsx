@@ -13,29 +13,28 @@ const AuthCallback = () => {
   useEffect(() => {
     const handleAuthCallback = async () => {
       try {
-        // Parse tokens from URL hash (Google OAuth sends #access_token=...)
-        const hash = window.location.hash;
-        const params = new URLSearchParams(hash.substring(1));
+        // Let Supabase handle the OAuth callback automatically
+        const { data, error } = await supabase.auth.getSession();
         
-        const accessToken = params.get('access_token');
-        const refreshToken = params.get('refresh_token');
-        
-        if (!accessToken) {
-          console.error("No access token found");
+        if (error) {
+          console.error("Auth callback error:", error);
           toast({ title: "Authentication failed", variant: "destructive" });
           navigate("/login", { replace: true });
           return;
         }
         
-        // Set the session in Supabase
-        const { error: setError } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken || '',
-        });
-        
-        if (setError) {
-          console.error("Error setting session:", setError);
-          throw setError;
+        if (!data.session) {
+          // Wait a bit for session to be established
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          const { data: retryData, error: retryError } = await supabase.auth.getSession();
+          
+          if (retryError || !retryData.session) {
+            console.error("No session established");
+            toast({ title: "Authentication failed", variant: "destructive" });
+            navigate("/login", { replace: true });
+            return;
+          }
         }
         
         // Get user data
