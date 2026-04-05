@@ -3,62 +3,8 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://your-project.supabase.co';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'your-anon-key';
 
-// Storage key
-const STORAGE_KEY = 'sb-auth-token';
-
-// Simple custom storage that bypasses Supabase's lock mechanism
-const customStorage = {
-  getItem: (key: string): string | null => {
-    try {
-      return localStorage.getItem(key);
-    } catch {
-      return null;
-    }
-  },
-  setItem: (key: string, value: string): void => {
-    try {
-      localStorage.setItem(key, value);
-    } catch {
-      // Ignore
-    }
-  },
-  removeItem: (key: string): void => {
-    try {
-      localStorage.removeItem(key);
-    } catch {
-      // Ignore
-    }
-  }
-};
-
-// Disable session persistence to avoid all lock issues
-// We'll manually store and retrieve the session
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: false, // DISABLE - we handle it manually
-    autoRefreshToken: false, // DISABLE
-    detectSessionInUrl: false,
-    storage: customStorage,
-    storageKey: STORAGE_KEY,
-  },
-});
-
-// Helper to clear all auth-related storage
-export const clearAuthStorage = () => {
-  try {
-    // Clear all known lock keys first
-    const keys = Object.keys(localStorage);
-    keys.forEach(key => {
-      if (key.startsWith('lock:sb-') || key.includes('supabase') || key === STORAGE_KEY || key === 'sb-auth-token') {
-        localStorage.removeItem(key);
-      }
-    });
-  } catch (e) {
-    console.error('Error clearing auth storage:', e);
-  }
-};
-
-export { STORAGE_KEY };
+// Use Supabase defaults - let it handle everything internally
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Database helper functions for frontend
 export const db = {
@@ -87,15 +33,8 @@ export const db = {
   },
 
   async signOut() {
-    // Clear storage first to prevent lock issues
-    clearAuthStorage();
-    
     const { error } = await supabase.auth.signOut();
-    if (error) {
-      // Even if signOut fails, clear everything
-      clearAuthStorage();
-      throw error;
-    }
+    if (error) throw error;
   },
 
   async getCurrentUser() {
@@ -105,9 +44,6 @@ export const db = {
   },
 
   async getSession() {
-    // Clear locks before getting session
-    clearAuthStorage();
-    
     const { data: { session }, error } = await supabase.auth.getSession();
     if (error) throw error;
     return session;
