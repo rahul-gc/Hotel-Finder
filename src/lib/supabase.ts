@@ -4,7 +4,13 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://your-project.s
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'your-anon-key';
 
 // Use Supabase defaults - let it handle everything internally
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: false, // Disable persistence to avoid locks
+    autoRefreshToken: false,
+    detectSessionInUrl: true,
+  },
+});
 
 // Database helper functions for frontend
 export const db = {
