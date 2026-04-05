@@ -535,7 +535,7 @@ const Index = () => {
             </div>
           </div>
           <div className="mt-8 pt-8 border-t text-center text-sm text-muted-foreground">
-            <p>© 2026 Nepal Hotels Finder. All rights reserved.</p>
+            <p>© {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })} Nepal Hotels Finder. All rights reserved.</p>
             <p className="mt-1">Built with ❤️ by Rahul GC</p>
           </div>
         </div>
