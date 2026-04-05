@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { db, supabase } from "@/lib/supabase";
+import { db } from "@/lib/supabase";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 const Signup = () => {
@@ -31,26 +31,11 @@ const Signup = () => {
     setLoading(true);
     
     try {
-      // Sign up with Supabase
-      const data = await db.signUp(email, password, { name: fullName });
+      // Sign up with Supabase - trigger will auto-create profile
+      const data = await db.signUp(email, password, { name: fullName, role: role });
       
       if (data.user) {
-        // Create user profile in public.users table with role
-        const { error: profileError } = await supabase
-          .from('users')
-          .insert([{
-            id: data.user.id,
-            email: email,
-            name: fullName,
-            role: role,
-            is_verified: true
-          }]);
-        
-        if (profileError) {
-          console.error('Profile creation error:', profileError);
-        }
-        
-        toast({ title: "Account created successfully! Please log in." });
+        toast({ title: "Account created! Please check your email to verify, then log in." });
         navigate("/login");
       }
     } catch (error: any) {
