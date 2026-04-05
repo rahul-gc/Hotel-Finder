@@ -17,15 +17,50 @@ const AuthCallback = () => {
         try {
           localStorage.removeItem('lock:sb-qkylzwrpttwlldmydleg-auth-token');
           localStorage.removeItem('lock:sb-auth-token');
+          // Clear the main storage to force fresh session detection
+          localStorage.removeItem('sb-auth-token');
         } catch (e) {
           // Ignore
         }
         
-        // Wait for Supabase to process the OAuth callback
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        // Check if hash contains access_token (Google OAuth response)
+        if (window.location.hash && window.location.hash.includes('access_token')) {
+          console.log("Found access_token in hash, letting Supabase process...");
+          // Wait for Supabase to auto-process the hash
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
         
-        // Get the session
-        const { data: { session }, error } = await supabase.auth.getSession();
+        // Try up to 3 times to get session with lock clearing between attempts
+        let session = null;
+        let error = null;
+        
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            console.log(`Session fetch attempt ${attempt}...`);
+            const result = await supabase.auth.getSession();
+            session = result.data.session;
+            error = result.error;
+            
+            if (session) {
+              console.log("Session found on attempt", attempt);
+              break;
+            }
+            
+            if (attempt < 3) {
+              // Clear lock before next attempt
+              try {
+                localStorage.removeItem('lock:sb-qkylzwrpttwlldmydleg-auth-token');
+                localStorage.removeItem('lock:sb-auth-token');
+              } catch {}
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+          } catch (attemptError) {
+            console.warn(`Attempt ${attempt} failed:`, attemptError);
+            if (attempt < 3) {
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+          }
+        }
         
         console.log("Auth callback - Session found:", !!session);
         
