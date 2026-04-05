@@ -13,11 +13,18 @@ const AuthCallback = () => {
   useEffect(() => {
     const handleAuthCallback = async () => {
       try {
-        // Supabase with detectSessionInUrl: true should have processed the OAuth callback
-        // Just wait a moment for it to complete
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Clear any existing lock to prevent contention
+        try {
+          localStorage.removeItem('lock:sb-qkylzwrpttwlldmydleg-auth-token');
+          localStorage.removeItem('lock:sb-auth-token');
+        } catch (e) {
+          // Ignore
+        }
         
-        // Get the session - Supabase should have stored it automatically
+        // Wait for Supabase to process the OAuth callback
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        
+        // Get the session
         const { data: { session }, error } = await supabase.auth.getSession();
         
         console.log("Auth callback - Session found:", !!session);

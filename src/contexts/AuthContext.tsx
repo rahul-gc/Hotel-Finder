@@ -24,6 +24,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Fetch user profile from Supabase
   const fetchProfile = async (userId: string) => {
+    // Clear any stuck locks before fetching
+    try {
+      localStorage.removeItem('lock:sb-qkylzwrpttwlldmydleg-auth-token');
+      localStorage.removeItem('lock:sb-auth-token');
+    } catch {
+      // Ignore
+    }
+    
     const { data, error } = await supabase
       .from("users")
       .select("id, role, name, email")
