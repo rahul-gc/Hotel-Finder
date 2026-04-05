@@ -60,6 +60,37 @@ const AuthCallback = () => {
           
           console.log("Session set successfully");
           
+          // Get user data after setting session
+          const { data: { user } } = await supabase.auth.getUser();
+          
+          if (user) {
+            // Check if user profile exists, if not create it
+            const { data: profile, error: profileError } = await supabase
+              .from("users")
+              .select("*")
+              .eq("id", user.id)
+              .single();
+
+            if (profileError && profileError.code === "PGRST116") {
+              // Profile doesn't exist, create it
+              setMessage("Setting up your account...");
+              const { error: insertError } = await supabase.from("users").insert({
+                id: user.id,
+                email: user.email,
+                name: user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split("@")[0] || "User",
+                username: user.user_metadata?.preferred_username || user.email?.split("@")[0] || `user_${Date.now()}`,
+                role: "user",
+                is_verified: true,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              });
+
+              if (insertError) {
+                console.error("Error creating profile:", insertError);
+              }
+            }
+          }
+          
           // Clear the hash
           window.location.hash = '';
           
