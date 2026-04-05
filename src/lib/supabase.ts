@@ -3,75 +3,13 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://your-project.supabase.co';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'your-anon-key';
 
-// Simple in-memory lock implementation to avoid contention
-const locks = new Map<string, Promise<void>>();
-
-async function acquireLock(key: string): Promise<() => void> {
-  const lockKey = `lock:${key}`;
-  
-  // Wait for any existing lock
-  while (locks.has(lockKey)) {
-    try {
-      await locks.get(lockKey);
-    } catch {
-      // Ignore errors from previous lock holder
-    }
-  }
-  
-  // Create new lock
-  let releaseLock: () => void;
-  const lockPromise = new Promise<void>((resolve) => {
-    releaseLock = () => {
-      locks.delete(lockKey);
-      resolve();
-    };
-  });
-  
-  locks.set(lockKey, lockPromise);
-  return releaseLock!;
-}
-
-// Custom storage that properly handles locks
-const customStorage = {
-  getItem: async (key: string) => {
-    const release = await acquireLock(key);
-    try {
-      return localStorage.getItem(key);
-    } finally {
-      release();
-    }
-  },
-  setItem: async (key: string, value: string) => {
-    const release = await acquireLock(key);
-    try {
-      localStorage.setItem(key, value);
-    } finally {
-      release();
-    }
-  },
-  removeItem: async (key: string) => {
-    const release = await acquireLock(key);
-    try {
-      localStorage.removeItem(key);
-    } finally {
-      release();
-    }
-  },
-};
-
+// Use Supabase's default storage - let it handle locks internally
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: false,
-    storage: customStorage,
+    detectSessionInUrl: true, // Enable automatic session detection
     storageKey: 'sb-auth-token',
-    debug: false,
-    // Disable lock warnings
-    lock: undefined,
-  },
-  realtime: {
-    timeout: 20000,
   },
 });
 
