@@ -44,38 +44,31 @@ const AuthCallback = () => {
         // Wait for locks to clear
         await new Promise(resolve => setTimeout(resolve, 500));
         
-        // Manually store the session data
-        setMessage("Storing session...");
+        // Use Supabase's setSession to properly store in memory storage
+        setMessage("Setting up session...");
         
-        const sessionData = {
-          access_token: accessToken,
-          refresh_token: refreshToken,
-          expires_in: parseInt(expiresIn || '3600', 10),
-          expires_at: Math.floor(Date.now() / 1000) + parseInt(expiresIn || '3600', 10),
-          token_type: tokenType,
-          provider_token: providerToken,
-          user: null // Will fetch after storing
-        };
-        
-        // Store in localStorage using Supabase's expected format
         try {
-          // Clear any existing lock keys first
-          localStorage.removeItem('lock:sb-qkylzwrpttwlldmydleg-auth-token');
-          localStorage.removeItem('lock:sb-auth-token');
+          const { error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken || '',
+          });
           
-          // Store the session
-          localStorage.setItem('sb-auth-token', JSON.stringify(sessionData));
-          console.log("Session stored successfully");
+          if (error) {
+            console.error("Set session error:", error);
+            throw error;
+          }
+          
+          console.log("Session set successfully");
           
           // Clear the hash
           window.location.hash = '';
           
-          // Reload to let the app pick up the new session
+          // Navigate to home
           toast({ title: "Login successful!" });
           navigate("/", { replace: true });
           
-        } catch (storageError) {
-          console.error("Error storing session:", storageError);
+        } catch (sessionError) {
+          console.error("Error setting session:", sessionError);
           toast({ title: "Authentication failed", variant: "destructive" });
           navigate("/login", { replace: true });
         }
