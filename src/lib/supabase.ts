@@ -3,11 +3,11 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://your-project.supabase.co';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'your-anon-key';
 
-// Use Supabase defaults - let it handle everything internally
+// Use Supabase defaults - enable session persistence
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    persistSession: false, // Disable persistence to avoid locks
-    autoRefreshToken: false,
+    persistSession: true, // Enable persistence for Google OAuth
+    autoRefreshToken: true,
     detectSessionInUrl: true,
   },
 });
