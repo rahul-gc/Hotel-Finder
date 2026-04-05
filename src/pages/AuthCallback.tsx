@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 
@@ -54,6 +55,51 @@ const AuthCallback = () => {
           // Store the session
           localStorage.setItem('sb-auth-token', JSON.stringify(sessionData));
           console.log("Session stored successfully");
+          
+          // Set the session in Supabase so we can get user data
+          await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken || '',
+          });
+          
+          // Get user data
+          const { data: { user } } = await supabase.auth.getUser();
+          
+          if (user) {
+            console.log("User authenticated:", user.email);
+            
+            // Check if user profile exists, if not create it
+            const { data: profile, error: profileError } = await supabase
+              .from("users")
+              .select("*")
+              .eq("id", user.id)
+              .single();
+
+            if (profileError && profileError.code === "PGRST116") {
+              // Profile doesn't exist, create it
+              setMessage("Setting up your account...");
+              console.log("Creating new user profile...");
+              
+              const { error: insertError } = await supabase.from("users").insert({
+                id: user.id,
+                email: user.email,
+                name: user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split("@")[0] || "User",
+                username: user.user_metadata?.preferred_username || user.email?.split("@")[0] || `user_${Date.now()}`,
+                role: "user",
+                is_verified: true,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              });
+
+              if (insertError) {
+                console.error("Error creating profile:", insertError);
+              } else {
+                console.log("User profile created successfully");
+              }
+            } else {
+              console.log("User profile already exists");
+            }
+          }
           
           // Clear the hash
           window.location.hash = '';
