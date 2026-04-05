@@ -3,29 +3,58 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://your-project.supabase.co';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'your-anon-key';
 
-// Custom storage that avoids lock contention
-const customStorage = {
-  getItem: (key: string) => {
+// Simple in-memory lock implementation to avoid contention
+const locks = new Map<string, Promise<void>>();
+
+async function acquireLock(key: string): Promise<() => void> {
+  const lockKey = `lock:${key}`;
+  
+  // Wait for any existing lock
+  while (locks.has(lockKey)) {
     try {
-      return Promise.resolve(localStorage.getItem(key));
+      await locks.get(lockKey);
     } catch {
-      return Promise.resolve(null);
+      // Ignore errors from previous lock holder
+    }
+  }
+  
+  // Create new lock
+  let releaseLock: () => void;
+  const lockPromise = new Promise<void>((resolve) => {
+    releaseLock = () => {
+      locks.delete(lockKey);
+      resolve();
+    };
+  });
+  
+  locks.set(lockKey, lockPromise);
+  return releaseLock!;
+}
+
+// Custom storage that properly handles locks
+const customStorage = {
+  getItem: async (key: string) => {
+    const release = await acquireLock(key);
+    try {
+      return localStorage.getItem(key);
+    } finally {
+      release();
     }
   },
-  setItem: (key: string, value: string) => {
+  setItem: async (key: string, value: string) => {
+    const release = await acquireLock(key);
     try {
       localStorage.setItem(key, value);
-      return Promise.resolve();
-    } catch {
-      return Promise.resolve();
+    } finally {
+      release();
     }
   },
-  removeItem: (key: string) => {
+  removeItem: async (key: string) => {
+    const release = await acquireLock(key);
     try {
       localStorage.removeItem(key);
-      return Promise.resolve();
-    } catch {
-      return Promise.resolve();
+    } finally {
+      release();
     }
   },
 };
@@ -34,10 +63,12 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: false, // Prevents concurrent session checks
+    detectSessionInUrl: false,
     storage: customStorage,
     storageKey: 'sb-auth-token',
     debug: false,
+    // Disable lock warnings
+    lock: undefined,
   },
   realtime: {
     timeout: 20000,
