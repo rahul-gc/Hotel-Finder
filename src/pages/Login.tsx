@@ -137,6 +137,8 @@ const Login = () => {
                       options: {
                         redirectTo: window.location.origin + '/auth/callback',
                         skipBrowserRedirect: false,
+                        // Use PKCE flow for better security and no lock issues
+                        flowType: 'pkce',
                       }
                     });
                     if (error) throw error;

@@ -3,10 +3,10 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://your-project.supabase.co';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'your-anon-key';
 
-// Minimal Supabase config to avoid lock contention
+// Minimal config - disable all auto features to avoid lock issues
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    persistSession: false, // Disable to avoid lock issues
+    persistSession: false,
     autoRefreshToken: false,
     detectSessionInUrl: false,
   },

@@ -19,6 +19,9 @@ const AuthCallback = () => {
         
         const accessToken = params.get('access_token');
         const refreshToken = params.get('refresh_token');
+        const expiresIn = params.get('expires_in');
+        const tokenType = params.get('token_type') || 'bearer';
+        const providerToken = params.get('provider_token');
         
         console.log("Auth callback - hash present:", !!hash);
         console.log("Auth callback - access_token present:", !!accessToken);
@@ -41,47 +44,41 @@ const AuthCallback = () => {
         // Wait for locks to clear
         await new Promise(resolve => setTimeout(resolve, 500));
         
-        // Use Supabase's setSession with retry
-        let sessionSet = false;
-        let retries = 3;
+        // Manually store the session data
+        setMessage("Storing session...");
         
-        while (retries > 0 && !sessionSet) {
-          try {
-            const { error } = await supabase.auth.setSession({
-              access_token: accessToken,
-              refresh_token: refreshToken || '',
-            });
-            
-            if (!error) {
-              sessionSet = true;
-              console.log("Session set successfully");
-              break;
-            }
-            
-            console.warn("Set session error:", error);
-          } catch (err) {
-            console.warn("Set session attempt failed:", err);
-          }
+        const sessionData = {
+          access_token: accessToken,
+          refresh_token: refreshToken,
+          expires_in: parseInt(expiresIn || '3600', 10),
+          expires_at: Math.floor(Date.now() / 1000) + parseInt(expiresIn || '3600', 10),
+          token_type: tokenType,
+          provider_token: providerToken,
+          user: null // Will fetch after storing
+        };
+        
+        // Store in localStorage using Supabase's expected format
+        try {
+          // Clear any existing lock keys first
+          localStorage.removeItem('lock:sb-qkylzwrpttwlldmydleg-auth-token');
+          localStorage.removeItem('lock:sb-auth-token');
           
-          retries--;
-          if (retries > 0) {
-            // Clear lock and retry
-            try {
-              localStorage.removeItem('lock:sb-qkylzwrpttwlldmydleg-auth-token');
-              localStorage.removeItem('lock:sb-auth-token');
-            } catch {}
-            await new Promise(resolve => setTimeout(resolve, 1000));
-          }
+          // Store the session
+          localStorage.setItem('sb-auth-token', JSON.stringify(sessionData));
+          console.log("Session stored successfully");
+          
+          // Clear the hash
+          window.location.hash = '';
+          
+          // Reload to let the app pick up the new session
+          toast({ title: "Login successful!" });
+          navigate("/", { replace: true });
+          
+        } catch (storageError) {
+          console.error("Error storing session:", storageError);
+          toast({ title: "Authentication failed", variant: "destructive" });
+          navigate("/login", { replace: true });
         }
-        
-        if (!sessionSet) {
-          throw new Error("Failed to set session after retries");
-        }
-        
-        // Clear hash and navigate
-        window.location.hash = '';
-        toast({ title: "Login successful!" });
-        navigate("/", { replace: true });
         
       } catch (error: any) {
         console.error("Auth callback error:", error);
